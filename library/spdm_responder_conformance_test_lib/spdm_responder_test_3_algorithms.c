@@ -29,6 +29,22 @@ typedef struct {
     spdm_negotiate_algorithms_common_struct_table_t struct_table[4];
 } spdm_negotiate_algorithms_request_mine_t;
 
+typedef struct {
+    spdm_message_header_t header;
+    uint16_t length;
+    uint8_t measurement_specification;
+    uint8_t other_params_support;
+    uint32_t base_asym_algo;
+    uint32_t base_hash_algo;
+    uint32_t pqc_asym_algo;
+    uint8_t reserved2[8];
+    uint8_t ext_asym_count;
+    uint8_t ext_hash_count;
+    uint8_t reserved3;
+    uint8_t mel_specification;
+    spdm_negotiate_algorithms_common_struct_table_t struct_table[6];
+} spdm_negotiate_algorithms_request_mine_v14_t;
+
 #pragma pack()
 
 bool spdm_test_case_algorithms_setup_version_capabilities (void *test_context,
@@ -128,6 +144,13 @@ bool spdm_test_case_algorithms_setup_version_13 (void *test_context)
 {
     return spdm_test_case_algorithms_setup_version_capabilities (test_context,
                                                                  SPDM_MESSAGE_VERSION_13 <<
+        SPDM_VERSION_NUMBER_SHIFT_BIT);
+}
+
+bool spdm_test_case_algorithms_setup_version_14 (void *test_context)
+{
+    return spdm_test_case_algorithms_setup_version_capabilities (test_context,
+                                                                 SPDM_MESSAGE_VERSION_14 <<
         SPDM_VERSION_NUMBER_SHIFT_BIT);
 }
 
@@ -1683,6 +1706,743 @@ void spdm_test_case_algorithms_success_13 (void *test_context)
     spdm_test_case_algorithms_success_12_13(test_context, SPDM_MESSAGE_VERSION_13 << SPDM_VERSION_NUMBER_SHIFT_BIT);
 }
 
+void spdm_test_case_algorithms_success_14 (void *test_context)
+{
+    spdm_test_context_t *spdm_test_context;
+    void *spdm_context;
+    libspdm_return_t status;
+    spdm_negotiate_algorithms_request_mine_v14_t spdm_request;
+    spdm_algorithms_response_t *spdm_response;
+    uint8_t message[LIBSPDM_MAX_SPDM_MSG_SIZE];
+    size_t spdm_response_size;
+    uint32_t algo;
+    common_test_result_t test_result;
+    spdm_algorithms_test_buffer_t *test_buffer;
+    spdm_negotiate_algorithms_common_struct_table_t *struct_table;
+    bool dhe_named_group_is_found;
+    bool aead_cipher_suite_is_found;
+    bool req_base_asym_alg_is_found;
+    bool key_schedule_is_found;
+    bool req_pqc_asym_alg_is_found;
+    bool kem_alg_is_found;
+    uint16_t dhe_named_group;
+    uint16_t aead_cipher_suite;
+    uint16_t req_base_asym_alg;
+    uint16_t key_schedule;
+    uint16_t req_pqc_asym_alg;
+    uint16_t kem_alg;
+    size_t index;
+    uint8_t ext_alg_count;
+    uint8_t previous_alg_type;
+
+    dhe_named_group = 0;
+    aead_cipher_suite = 0;
+    req_base_asym_alg = 0;
+    key_schedule = 0;
+    req_pqc_asym_alg = 0;
+    kem_alg = 0;
+
+    spdm_test_context = test_context;
+    spdm_context = spdm_test_context->spdm_context;
+    test_buffer = (void *)spdm_test_context->test_scratch_buffer;
+    LIBSPDM_ASSERT (spdm_test_context->test_scratch_buffer_size ==
+                    sizeof(spdm_algorithms_test_buffer_t));
+
+    libspdm_zero_mem(&spdm_request, sizeof(spdm_request));
+    spdm_request.header.spdm_version = SPDM_MESSAGE_VERSION_14;
+    spdm_request.length = sizeof(spdm_request);
+    spdm_request.header.param1 = 6;
+    spdm_request.header.request_response_code = SPDM_NEGOTIATE_ALGORITHMS;
+    spdm_request.header.param2 = 0;
+    spdm_request.measurement_specification = SPDM_MEASUREMENT_SPECIFICATION_DMTF;
+    spdm_request.other_params_support = SPDM_ALGORITHMS_OPAQUE_DATA_FORMAT_1;
+    spdm_request.base_asym_algo = SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSASSA_2048 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSAPSS_2048 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSASSA_3072 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSAPSS_3072 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_ECDSA_ECC_NIST_P256 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSASSA_4096 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSAPSS_4096 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_ECDSA_ECC_NIST_P384 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_ECDSA_ECC_NIST_P521 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_SM2_ECC_SM2_P256 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_EDDSA_ED25519 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_EDDSA_ED448;
+    spdm_request.base_hash_algo = SPDM_ALGORITHMS_BASE_HASH_ALGO_TPM_ALG_SHA_256 |
+                                  SPDM_ALGORITHMS_BASE_HASH_ALGO_TPM_ALG_SHA_384 |
+                                  SPDM_ALGORITHMS_BASE_HASH_ALGO_TPM_ALG_SHA_512 |
+                                  SPDM_ALGORITHMS_BASE_HASH_ALGO_TPM_ALG_SHA3_256 |
+                                  SPDM_ALGORITHMS_BASE_HASH_ALGO_TPM_ALG_SHA3_384 |
+                                  SPDM_ALGORITHMS_BASE_HASH_ALGO_TPM_ALG_SHA3_512 |
+                                  SPDM_ALGORITHMS_BASE_HASH_ALGO_TPM_ALG_SM3_256;
+    spdm_request.pqc_asym_algo = SPDM_ALGORITHMS_PQC_ASYM_ALGO_ML_DSA_44 |
+                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_ML_DSA_65 |
+                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_ML_DSA_87 |
+                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_128S |
+                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_128S |
+                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_128F |
+                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_128F |
+                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_192S |
+                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_192S |
+                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_192F |
+                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_192F |
+                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_256S |
+                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_256S |
+                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_256F |
+                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_256F;
+    spdm_request.ext_asym_count = 0;
+    spdm_request.ext_hash_count = 0;
+    spdm_request.struct_table[0].alg_type = SPDM_NEGOTIATE_ALGORITHMS_STRUCT_TABLE_ALG_TYPE_DHE;
+    spdm_request.struct_table[0].alg_count = 0x20;
+    spdm_request.struct_table[0].alg_supported = SPDM_ALGORITHMS_DHE_NAMED_GROUP_FFDHE_2048 |
+                                                 SPDM_ALGORITHMS_DHE_NAMED_GROUP_FFDHE_3072 |
+                                                 SPDM_ALGORITHMS_DHE_NAMED_GROUP_FFDHE_4096 |
+                                                 SPDM_ALGORITHMS_DHE_NAMED_GROUP_SECP_256_R1 |
+                                                 SPDM_ALGORITHMS_DHE_NAMED_GROUP_SECP_384_R1 |
+                                                 SPDM_ALGORITHMS_DHE_NAMED_GROUP_SECP_521_R1 |
+                                                 SPDM_ALGORITHMS_DHE_NAMED_GROUP_SM2_P256;
+    spdm_request.struct_table[1].alg_type = SPDM_NEGOTIATE_ALGORITHMS_STRUCT_TABLE_ALG_TYPE_AEAD;
+    spdm_request.struct_table[1].alg_count = 0x20;
+    spdm_request.struct_table[1].alg_supported = SPDM_ALGORITHMS_AEAD_CIPHER_SUITE_AES_128_GCM |
+                                                 SPDM_ALGORITHMS_AEAD_CIPHER_SUITE_AES_256_GCM |
+                                                 SPDM_ALGORITHMS_AEAD_CIPHER_SUITE_CHACHA20_POLY1305
+                                                 |
+                                                 SPDM_ALGORITHMS_AEAD_CIPHER_SUITE_AEAD_SM4_GCM;
+    spdm_request.struct_table[2].alg_type =
+        SPDM_NEGOTIATE_ALGORITHMS_STRUCT_TABLE_ALG_TYPE_REQ_BASE_ASYM_ALG;
+    spdm_request.struct_table[2].alg_count = 0x20;
+    spdm_request.struct_table[2].alg_supported =
+        SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSASSA_2048 |
+        SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSAPSS_2048 |
+        SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSASSA_3072 |
+        SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSAPSS_3072 |
+        SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_ECDSA_ECC_NIST_P256 |
+        SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSASSA_4096 |
+        SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSAPSS_4096 |
+        SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_ECDSA_ECC_NIST_P384 |
+        SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_ECDSA_ECC_NIST_P521 |
+        SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_SM2_ECC_SM2_P256 |
+        SPDM_ALGORITHMS_BASE_ASYM_ALGO_EDDSA_ED25519 |
+        SPDM_ALGORITHMS_BASE_ASYM_ALGO_EDDSA_ED448;
+    spdm_request.struct_table[3].alg_type =
+        SPDM_NEGOTIATE_ALGORITHMS_STRUCT_TABLE_ALG_TYPE_KEY_SCHEDULE;
+    spdm_request.struct_table[3].alg_count = 0x20;
+    spdm_request.struct_table[3].alg_supported = SPDM_ALGORITHMS_KEY_SCHEDULE_SPDM;
+    spdm_request.struct_table[4].alg_type =
+        SPDM_NEGOTIATE_ALGORITHMS_STRUCT_TABLE_ALG_TYPE_REQ_PQC_ASYM_ALG;
+    spdm_request.struct_table[4].alg_count = 0x20;
+    spdm_request.struct_table[4].alg_supported =
+        SPDM_ALGORITHMS_PQC_ASYM_ALGO_ML_DSA_44 |
+        SPDM_ALGORITHMS_PQC_ASYM_ALGO_ML_DSA_65 |
+        SPDM_ALGORITHMS_PQC_ASYM_ALGO_ML_DSA_87 |
+        SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_128S |
+        SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_128S |
+        SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_128F |
+        SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_128F |
+        SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_192S |
+        SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_192S |
+        SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_192F |
+        SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_192F |
+        SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_256S |
+        SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_256S |
+        SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_256F |
+        SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_256F;
+    spdm_request.struct_table[5].alg_type =
+        SPDM_NEGOTIATE_ALGORITHMS_STRUCT_TABLE_ALG_TYPE_KEM_ALG;
+    spdm_request.struct_table[5].alg_count = 0x20;
+    spdm_request.struct_table[5].alg_supported =
+        SPDM_ALGORITHMS_KEM_ALG_ML_KEM_512 |
+        SPDM_ALGORITHMS_KEM_ALG_ML_KEM_768 |
+        SPDM_ALGORITHMS_KEM_ALG_ML_KEM_1024;
+
+    spdm_response = (void *)message;
+    spdm_response_size = sizeof(message);
+    libspdm_zero_mem(message, sizeof(message));
+    status = libspdm_send_receive_data(spdm_context, NULL, false,
+                                       &spdm_request, spdm_request.length,
+                                       spdm_response, &spdm_response_size);
+    if (LIBSPDM_STATUS_IS_ERROR(status)) {
+        common_test_record_test_assertion (
+            SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+            SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14,
+            0,
+            COMMON_TEST_RESULT_NOT_TESTED, "send/receive failure");
+        return;
+    }
+
+    /* Assertion 3.9.1: response size */
+    if (spdm_response_size >= sizeof(spdm_algorithms_response_t)) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 1,
+        test_result, "response size - %d", spdm_response_size);
+    if (test_result == COMMON_TEST_RESULT_FAIL) {
+        return;
+    }
+
+    /* Assertion 3.9.2: response code */
+    if (spdm_response->header.request_response_code == SPDM_ALGORITHMS) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 2,
+        test_result, "response code - 0x%02x",
+        spdm_response->header.request_response_code);
+    if (test_result == COMMON_TEST_RESULT_FAIL) {
+        return;
+    }
+
+    /* Assertion 3.9.3: version */
+    if (spdm_response->header.spdm_version == SPDM_MESSAGE_VERSION_14) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 3,
+        test_result, "response version - 0x%02x",
+        spdm_response->header.spdm_version);
+    if (test_result == COMMON_TEST_RESULT_FAIL) {
+        return;
+    }
+
+    /* Assertion 3.9.4: length */
+    if ((spdm_response->length <= spdm_response_size) &&
+        (spdm_response->length == sizeof(spdm_algorithms_response_t) +
+         spdm_response->ext_asym_sel_count * sizeof(spdm_extended_algorithm_t) +
+         spdm_response->ext_hash_sel_count * sizeof(spdm_extended_algorithm_t) +
+         spdm_response->header.param1 *
+         sizeof(spdm_negotiate_algorithms_common_struct_table_t))) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 4,
+        test_result, "response length - 0x%04x", spdm_response->length);
+    if (test_result == COMMON_TEST_RESULT_FAIL) {
+        return;
+    }
+
+    /* Assertion 3.9.5: ext_asym_sel_count */
+    if (spdm_response->ext_asym_sel_count == 0) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 5,
+        test_result, "response ext_asym_sel_count - 0x%02x",
+        spdm_response->ext_asym_sel_count);
+    if (test_result == COMMON_TEST_RESULT_FAIL) {
+        return;
+    }
+
+    /* Assertion 3.9.6: ext_hash_sel_count */
+    if (spdm_response->ext_hash_sel_count == 0) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 6,
+        test_result, "response ext_hash_sel_count - 0x%02x",
+        spdm_response->ext_hash_sel_count);
+    if (test_result == COMMON_TEST_RESULT_FAIL) {
+        return;
+    }
+
+    /* Assertion 3.9.7: measurement_specification_sel */
+    algo = spdm_test_get_one_bit (spdm_response->measurement_specification_sel,
+                                  SPDM_MEASUREMENT_SPECIFICATION_DMTF);
+    if (algo != 0xFFFFFFFF) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 7,
+        test_result, "response measurement_specification_sel - 0x%02x",
+        spdm_response->measurement_specification_sel);
+
+    /* Assertion 3.9.8: measurement_hash_algo */
+    algo = spdm_test_get_one_bit (spdm_response->measurement_hash_algo,
+                                  SPDM_ALGORITHMS_MEASUREMENT_HASH_ALGO_RAW_BIT_STREAM_ONLY |
+                                  SPDM_ALGORITHMS_MEASUREMENT_HASH_ALGO_TPM_ALG_SHA_256 |
+                                  SPDM_ALGORITHMS_MEASUREMENT_HASH_ALGO_TPM_ALG_SHA_384 |
+                                  SPDM_ALGORITHMS_MEASUREMENT_HASH_ALGO_TPM_ALG_SHA_512 |
+                                  SPDM_ALGORITHMS_MEASUREMENT_HASH_ALGO_TPM_ALG_SHA3_256 |
+                                  SPDM_ALGORITHMS_MEASUREMENT_HASH_ALGO_TPM_ALG_SHA3_384 |
+                                  SPDM_ALGORITHMS_MEASUREMENT_HASH_ALGO_TPM_ALG_SHA3_512 |
+                                  SPDM_ALGORITHMS_BASE_HASH_ALGO_TPM_ALG_SM3_256);
+    if (((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_MEAS_CAP) != 0) &&
+        ((algo != 0xFFFFFFFF) && (algo != 0x0))) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else if (((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_MEAS_CAP) ==
+                0) &&
+               (algo == 0x0)) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 8,
+        test_result, "response measurement_hash_algo - 0x%08x",
+        spdm_response->measurement_hash_algo);
+
+    /* Assertion 3.9.9: base_asym_sel
+     * In v1.4, the total number of bits set across base_asym_sel and pqc_asym_sel
+     * shall be no more than one. base_asym_sel is checked here; the combined
+     * constraint is checked in assertion 3.9.18. */
+    algo = spdm_test_get_one_bit (spdm_response->base_asym_sel,
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSASSA_2048 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSAPSS_2048 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSASSA_3072 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSAPSS_3072 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_ECDSA_ECC_NIST_P256 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSASSA_4096 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSAPSS_4096 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_ECDSA_ECC_NIST_P384 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_ECDSA_ECC_NIST_P521 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_SM2_ECC_SM2_P256 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_EDDSA_ED25519 |
+                                  SPDM_ALGORITHMS_BASE_ASYM_ALGO_EDDSA_ED448);
+    if ((((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_CHAL_CAP) != 0) ||
+         ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_MEAS_CAP_SIG) != 0) ||
+         ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_KEY_EX_CAP) != 0)) &&
+        ((algo != 0xFFFFFFFF) && (algo != 0x0))) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else if ((((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_CHAL_CAP) != 0) ||
+                ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_MEAS_CAP_SIG) != 0) ||
+                ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_KEY_EX_CAP) != 0)) &&
+               (algo == 0x0) &&
+               (spdm_response->pqc_asym_sel != 0x0)) {
+        /* base_asym_sel==0 is acceptable if pqc_asym_sel has a selection */
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else if ((((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_CHAL_CAP) ==
+                 0) &&
+                ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_MEAS_CAP_SIG) ==
+                 0) &&
+                ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_KEY_EX_CAP) ==
+                 0)) &&
+               (algo == 0x0)) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 9,
+        test_result, "response base_asym_sel - 0x%08x", spdm_response->base_asym_sel);
+
+    /* Assertion 3.9.10: base_hash_sel */
+    algo = spdm_test_get_one_bit (spdm_response->base_hash_sel,
+                                  SPDM_ALGORITHMS_BASE_HASH_ALGO_TPM_ALG_SHA_256 |
+                                  SPDM_ALGORITHMS_BASE_HASH_ALGO_TPM_ALG_SHA_384 |
+                                  SPDM_ALGORITHMS_BASE_HASH_ALGO_TPM_ALG_SHA_512 |
+                                  SPDM_ALGORITHMS_BASE_HASH_ALGO_TPM_ALG_SHA3_256 |
+                                  SPDM_ALGORITHMS_BASE_HASH_ALGO_TPM_ALG_SHA3_384 |
+                                  SPDM_ALGORITHMS_BASE_HASH_ALGO_TPM_ALG_SHA3_512 |
+                                  SPDM_ALGORITHMS_BASE_HASH_ALGO_TPM_ALG_SM3_256);
+    if ((((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_CHAL_CAP) != 0) ||
+         ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_MEAS_CAP_SIG) != 0) ||
+         ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_KEY_EX_CAP) != 0) ||
+         ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_PSK_CAP) != 0)) &&
+        ((algo != 0xFFFFFFFF) && (algo != 0x0))) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else if ((((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_CHAL_CAP) ==
+                 0) &&
+                ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_MEAS_CAP_SIG) ==
+                 0) &&
+                ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_KEY_EX_CAP) ==
+                 0) &&
+                ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_PSK_CAP) ==
+                 0)) &&
+               (algo == 0x0)) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 10,
+        test_result, "response base_hash_sel - 0x%08x", spdm_response->base_hash_sel);
+
+    /* Assertion 3.9.11: param1 and AlgType validation */
+    if (spdm_response->header.param1 <= 6) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 11,
+        test_result, "response param1 - 0x%02x", spdm_response->header.param1);
+
+    /* Parse AlgStruct entries */
+    dhe_named_group_is_found = false;
+    aead_cipher_suite_is_found = false;
+    req_base_asym_alg_is_found = false;
+    key_schedule_is_found = false;
+    req_pqc_asym_alg_is_found = false;
+    kem_alg_is_found = false;
+    struct_table = (void *)((size_t)spdm_response +
+                            sizeof(spdm_algorithms_response_t) +
+                            sizeof(uint32_t) * spdm_response->ext_asym_sel_count +
+                            sizeof(uint32_t) * spdm_response->ext_hash_sel_count);
+    previous_alg_type = 0;
+    for (index = 0; index < spdm_response->header.param1; index++) {
+        if (struct_table->alg_type <= previous_alg_type) {
+            common_test_record_test_assertion (
+                SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+                SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 11,
+                COMMON_TEST_RESULT_FAIL,
+                "response alg_type not strictly increasing - 0x%02x after 0x%02x",
+                struct_table->alg_type, previous_alg_type);
+        }
+        previous_alg_type = struct_table->alg_type;
+
+        switch (struct_table->alg_type) {
+        case SPDM_NEGOTIATE_ALGORITHMS_STRUCT_TABLE_ALG_TYPE_DHE:
+            if (dhe_named_group_is_found) {
+                test_result = COMMON_TEST_RESULT_FAIL;
+                common_test_record_test_assertion (
+                    SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+                    SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 0,
+                    test_result, "response dup dhe_named_group - 0x%02x",
+                    struct_table->alg_type);
+            }
+            dhe_named_group_is_found = true;
+            dhe_named_group = (uint16_t)spdm_test_get_one_bit (struct_table->alg_supported,
+                                                               SPDM_ALGORITHMS_DHE_NAMED_GROUP_FFDHE_2048 |
+                                                               SPDM_ALGORITHMS_DHE_NAMED_GROUP_FFDHE_3072 |
+                                                               SPDM_ALGORITHMS_DHE_NAMED_GROUP_FFDHE_4096 |
+                                                               SPDM_ALGORITHMS_DHE_NAMED_GROUP_SECP_256_R1 |
+                                                               SPDM_ALGORITHMS_DHE_NAMED_GROUP_SECP_384_R1 |
+                                                               SPDM_ALGORITHMS_DHE_NAMED_GROUP_SECP_521_R1 |
+                                                               SPDM_ALGORITHMS_DHE_NAMED_GROUP_SM2_P256);
+            break;
+        case SPDM_NEGOTIATE_ALGORITHMS_STRUCT_TABLE_ALG_TYPE_AEAD:
+            if (aead_cipher_suite_is_found) {
+                test_result = COMMON_TEST_RESULT_FAIL;
+                common_test_record_test_assertion (
+                    SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+                    SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 0,
+                    test_result, "response dup aead_cipher_suite - 0x%02x",
+                    struct_table->alg_type);
+            }
+            aead_cipher_suite_is_found = true;
+            aead_cipher_suite = (uint16_t)spdm_test_get_one_bit (struct_table->alg_supported,
+                                                                 SPDM_ALGORITHMS_AEAD_CIPHER_SUITE_AES_128_GCM |
+                                                                 SPDM_ALGORITHMS_AEAD_CIPHER_SUITE_AES_256_GCM |
+                                                                 SPDM_ALGORITHMS_AEAD_CIPHER_SUITE_CHACHA20_POLY1305 |
+                                                                 SPDM_ALGORITHMS_AEAD_CIPHER_SUITE_AEAD_SM4_GCM);
+            break;
+        case SPDM_NEGOTIATE_ALGORITHMS_STRUCT_TABLE_ALG_TYPE_REQ_BASE_ASYM_ALG:
+            if (req_base_asym_alg_is_found) {
+                test_result = COMMON_TEST_RESULT_FAIL;
+                common_test_record_test_assertion (
+                    SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+                    SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 0,
+                    test_result, "response dup req_base_asym_alg - 0x%02x",
+                    struct_table->alg_type);
+            }
+            req_base_asym_alg_is_found = true;
+            req_base_asym_alg = (uint16_t)spdm_test_get_one_bit (struct_table->alg_supported,
+                                                                 SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSASSA_2048 |
+                                                                 SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSAPSS_2048 |
+                                                                 SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSASSA_3072 |
+                                                                 SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSAPSS_3072 |
+                                                                 SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_ECDSA_ECC_NIST_P256 |
+                                                                 SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSASSA_4096 |
+                                                                 SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_RSAPSS_4096 |
+                                                                 SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_ECDSA_ECC_NIST_P384 |
+                                                                 SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_ECDSA_ECC_NIST_P521 |
+                                                                 SPDM_ALGORITHMS_BASE_ASYM_ALGO_TPM_ALG_SM2_ECC_SM2_P256 |
+                                                                 SPDM_ALGORITHMS_BASE_ASYM_ALGO_EDDSA_ED25519 |
+                                                                 SPDM_ALGORITHMS_BASE_ASYM_ALGO_EDDSA_ED448);
+            break;
+        case SPDM_NEGOTIATE_ALGORITHMS_STRUCT_TABLE_ALG_TYPE_KEY_SCHEDULE:
+            if (key_schedule_is_found) {
+                test_result = COMMON_TEST_RESULT_FAIL;
+                common_test_record_test_assertion (
+                    SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+                    SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 0,
+                    test_result, "response dup key_schedule - 0x%02x",
+                    struct_table->alg_type);
+            }
+            key_schedule_is_found = true;
+            key_schedule = (uint16_t)spdm_test_get_one_bit (struct_table->alg_supported,
+                                                            SPDM_ALGORITHMS_KEY_SCHEDULE_SPDM);
+            break;
+        case SPDM_NEGOTIATE_ALGORITHMS_STRUCT_TABLE_ALG_TYPE_REQ_PQC_ASYM_ALG:
+            if (req_pqc_asym_alg_is_found) {
+                test_result = COMMON_TEST_RESULT_FAIL;
+                common_test_record_test_assertion (
+                    SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+                    SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 0,
+                    test_result, "response dup req_pqc_asym_alg - 0x%02x",
+                    struct_table->alg_type);
+            }
+            req_pqc_asym_alg_is_found = true;
+            req_pqc_asym_alg = (uint16_t)spdm_test_get_one_bit (struct_table->alg_supported,
+                                                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_ML_DSA_44 |
+                                                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_ML_DSA_65 |
+                                                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_ML_DSA_87 |
+                                                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_128S |
+                                                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_128S |
+                                                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_128F |
+                                                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_128F |
+                                                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_192S |
+                                                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_192S |
+                                                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_192F |
+                                                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_192F |
+                                                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_256S |
+                                                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_256S |
+                                                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_256F |
+                                                                 SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_256F);
+            break;
+        case SPDM_NEGOTIATE_ALGORITHMS_STRUCT_TABLE_ALG_TYPE_KEM_ALG:
+            if (kem_alg_is_found) {
+                test_result = COMMON_TEST_RESULT_FAIL;
+                common_test_record_test_assertion (
+                    SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+                    SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 0,
+                    test_result, "response dup kem_alg - 0x%02x",
+                    struct_table->alg_type);
+            }
+            kem_alg_is_found = true;
+            kem_alg = (uint16_t)spdm_test_get_one_bit (struct_table->alg_supported,
+                                                        SPDM_ALGORITHMS_KEM_ALG_ML_KEM_512 |
+                                                        SPDM_ALGORITHMS_KEM_ALG_ML_KEM_768 |
+                                                        SPDM_ALGORITHMS_KEM_ALG_ML_KEM_1024);
+            break;
+        default:
+            test_result = COMMON_TEST_RESULT_FAIL;
+            common_test_record_test_assertion (
+                SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+                SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 0,
+                test_result, "response unknown alg_type - 0x%02x",
+                struct_table->alg_type);
+            break;
+        }
+
+        /* Assertion 3.9.12: alg_count */
+        if (struct_table->alg_count == 0x20) {
+            test_result = COMMON_TEST_RESULT_PASS;
+        } else {
+            test_result = COMMON_TEST_RESULT_FAIL;
+        }
+        common_test_record_test_assertion (
+            SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+            SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 12,
+            test_result, "response alg_count - 0x%02x", struct_table->alg_count);
+        ext_alg_count = struct_table->alg_count & 0xF;
+        struct_table =
+            (void *)((size_t)struct_table +
+                     sizeof(spdm_negotiate_algorithms_common_struct_table_t) +
+                     sizeof(uint32_t) * ext_alg_count);
+    }
+
+    /* Assertion 3.9.13: DHE named group.
+     * SPDM 1.4 permits key exchange to use either a traditional DHE group or
+     * a KEM, so a zero DHE selection is valid when a KEM was selected. */
+    if (dhe_named_group == 0xFFFF) {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    } else if (((test_buffer->rsp_cap_flags &
+                 SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_KEY_EX_CAP) == 0) &&
+               (dhe_named_group != 0x0)) {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    } else {
+        test_result = COMMON_TEST_RESULT_PASS;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 13,
+        test_result, "response dhe_named_group - 0x%04x", dhe_named_group);
+
+    /* Assertion 3.9.14: AEAD cipher suite */
+    if ((((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_KEY_EX_CAP) != 0) ||
+         ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_PSK_CAP) != 0)) &&
+        ((aead_cipher_suite != 0xFFFF) && (aead_cipher_suite != 0x0))) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else if ((((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_KEY_EX_CAP) ==
+                 0) &&
+                ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_PSK_CAP) ==
+                 0)) &&
+               (aead_cipher_suite == 0x0)) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 14,
+        test_result, "response aead_cipher_suite - 0x%04x", aead_cipher_suite);
+
+    /* Assertion 3.9.15: ReqBaseAsymAlg
+     * In v1.4, the total number of bits set across req_base_asym_alg and
+     * req_pqc_asym_alg shall be no more than one. The combined constraint is
+     * checked in assertion 3.9.19. */
+    if (((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_MUT_AUTH_CAP) != 0) &&
+        ((req_base_asym_alg != 0xFFFF) && (req_base_asym_alg != 0x0))) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else if (((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_MUT_AUTH_CAP) != 0) &&
+               (req_base_asym_alg == 0x0) &&
+               (req_pqc_asym_alg != 0x0)) {
+        /* req_base_asym_alg==0 is acceptable if req_pqc_asym_alg has a selection */
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else if (((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_MUT_AUTH_CAP) ==
+                0) &&
+               (req_base_asym_alg == 0x0)) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 15,
+        test_result, "response req_base_asym_alg - 0x%04x", req_base_asym_alg);
+
+    /* Assertion 3.9.16: KeySchedule */
+    if ((((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_KEY_EX_CAP) != 0) ||
+         ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_PSK_CAP) != 0)) &&
+        ((key_schedule != 0xFFFF) && (key_schedule != 0x0))) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else if ((((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_KEY_EX_CAP) ==
+                 0) &&
+                ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_PSK_CAP) ==
+                 0)) &&
+               (key_schedule == 0x0)) {
+        test_result = COMMON_TEST_RESULT_PASS;
+    } else {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 16,
+        test_result, "response key_schedule - 0x%04x", key_schedule);
+
+    /* Assertion 3.9.17: OpaqueDataFmt */
+    if (((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_KEY_EX_CAP) != 0) ||
+        ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_PSK_CAP) != 0)) {
+        if (spdm_response->other_params_selection == SPDM_ALGORITHMS_OPAQUE_DATA_FORMAT_1) {
+            test_result = COMMON_TEST_RESULT_PASS;
+        } else {
+            test_result = COMMON_TEST_RESULT_FAIL;
+        }
+        common_test_record_test_assertion (
+            SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+            SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 17,
+            test_result, "response other_params_selection - 0x%02x",
+            spdm_response->other_params_selection);
+    }
+
+    /* Assertion 3.9.18: pqc_asym_sel
+     * pqc_asym_sel only has one bit at most.
+     * The total number of bits set across base_asym_sel and pqc_asym_sel
+     * shall be no more than one.
+     * If (CHAL_CAP==1 || MEAS_CAP==2 || KEY_EX_CAP==1) and base_asym_sel==0
+     *   then pqc_asym_sel may be one valid PQC algo or 0.
+     * If no signing capability then pqc_asym_sel must be 0. */
+    algo = spdm_test_get_one_bit (spdm_response->pqc_asym_sel,
+                                  SPDM_ALGORITHMS_PQC_ASYM_ALGO_ML_DSA_44 |
+                                  SPDM_ALGORITHMS_PQC_ASYM_ALGO_ML_DSA_65 |
+                                  SPDM_ALGORITHMS_PQC_ASYM_ALGO_ML_DSA_87 |
+                                  SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_128S |
+                                  SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_128S |
+                                  SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_128F |
+                                  SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_128F |
+                                  SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_192S |
+                                  SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_192S |
+                                  SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_192F |
+                                  SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_192F |
+                                  SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_256S |
+                                  SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_256S |
+                                  SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHA2_256F |
+                                  SPDM_ALGORITHMS_PQC_ASYM_ALGO_SLH_DSA_SHAKE_256F);
+    if (algo == 0xFFFFFFFF) {
+        /* more than one bit set -- fail */
+        test_result = COMMON_TEST_RESULT_FAIL;
+    } else if ((spdm_response->pqc_asym_sel != 0x0) &&
+               (spdm_response->base_asym_sel != 0x0)) {
+        /* both base_asym_sel and pqc_asym_sel have a selection -- fail */
+        test_result = COMMON_TEST_RESULT_FAIL;
+    } else if ((((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_CHAL_CAP) ==
+                 0) &&
+                ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_MEAS_CAP_SIG) ==
+                 0) &&
+                ((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_KEY_EX_CAP) ==
+                 0)) &&
+               (spdm_response->pqc_asym_sel != 0x0)) {
+        /* no signing capability but pqc_asym_sel is non-zero -- fail */
+        test_result = COMMON_TEST_RESULT_FAIL;
+    } else {
+        test_result = COMMON_TEST_RESULT_PASS;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 18,
+        test_result, "response pqc_asym_sel - 0x%08x", spdm_response->pqc_asym_sel);
+
+    /* Assertion 3.9.19: ReqPqcAsymAlg
+     * req_pqc_asym_alg only has one bit at most.
+     * The total number of bits set across req_base_asym_alg and req_pqc_asym_alg
+     * shall be no more than one.
+     * If MUT_AUTH_CAP==1 and req_base_asym_alg==0
+     *   then req_pqc_asym_alg may be one valid PQC algo or 0.
+     * If MUT_AUTH_CAP==0 then req_pqc_asym_alg must be 0 or absent. */
+    if (req_pqc_asym_alg == 0xFFFF) {
+        /* more than one bit set -- fail */
+        test_result = COMMON_TEST_RESULT_FAIL;
+    } else if ((req_pqc_asym_alg != 0x0) && (req_base_asym_alg != 0x0)) {
+        /* both req_base_asym_alg and req_pqc_asym_alg have a selection -- fail */
+        test_result = COMMON_TEST_RESULT_FAIL;
+    } else if (((test_buffer->rsp_cap_flags & SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_MUT_AUTH_CAP) ==
+                0) &&
+               (req_pqc_asym_alg != 0x0)) {
+        /* no MUT_AUTH_CAP but req_pqc_asym_alg is non-zero -- fail */
+        test_result = COMMON_TEST_RESULT_FAIL;
+    } else {
+        test_result = COMMON_TEST_RESULT_PASS;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 19,
+        test_result, "response req_pqc_asym_alg - 0x%04x", req_pqc_asym_alg);
+
+    /* Assertion 3.9.20: KemAlg.
+     * If KEY_EX_CAP is set, exactly one of DHE and KEM must be selected. If it
+     * is clear, neither algorithm may be selected. */
+    if (kem_alg == 0xFFFF) {
+        test_result = COMMON_TEST_RESULT_FAIL;
+    } else if ((test_buffer->rsp_cap_flags &
+                SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_KEY_EX_CAP) != 0) {
+        test_result = ((dhe_named_group == 0x0) != (kem_alg == 0x0)) ?
+                      COMMON_TEST_RESULT_PASS : COMMON_TEST_RESULT_FAIL;
+    } else {
+        test_result = ((dhe_named_group == 0x0) && (kem_alg == 0x0)) ?
+                      COMMON_TEST_RESULT_PASS : COMMON_TEST_RESULT_FAIL;
+    }
+    common_test_record_test_assertion (
+        SPDM_RESPONDER_TEST_GROUP_ALGORITHMS,
+        SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14, 20,
+        test_result, "response kem_alg - 0x%04x", kem_alg);
+}
+
 void spdm_test_case_algorithms_unexpected_non_identical (void *test_context)
 {
     spdm_test_context_t *spdm_test_context;
@@ -2006,6 +2766,11 @@ common_test_case_t m_spdm_test_group_algorithms[] = {
      "spdm_test_case_algorithms_success_13",
      spdm_test_case_algorithms_success_13,
      spdm_test_case_algorithms_setup_version_13,
+     spdm_test_case_common_teardown},
+    {SPDM_RESPONDER_TEST_CASE_ALGORITHMS_SUCCESS_14,
+     "spdm_test_case_algorithms_success_14",
+     spdm_test_case_algorithms_success_14,
+     spdm_test_case_algorithms_setup_version_14,
      spdm_test_case_common_teardown},
     {COMMON_TEST_ID_END, NULL, NULL},
 };
