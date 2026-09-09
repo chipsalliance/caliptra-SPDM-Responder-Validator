@@ -119,6 +119,8 @@ void spdm_responder_conformance_test (void *spdm_context,
     10
 #define   SPDM_RESPONDER_TEST_CASE_FINISH_RSP_SESSION_REQUIRED                                      \
     11
+#define   SPDM_RESPONDER_TEST_CASE_FINISH_RSP_SUCCESS_14                                            \
+    12
 
 #define SPDM_RESPONDER_TEST_GROUP_HEARTBEAT_ACK    12
 #define   SPDM_RESPONDER_TEST_CASE_HEARTBEAT_ACK_SUCCESS_11_IN_DHE_SESSION             1
