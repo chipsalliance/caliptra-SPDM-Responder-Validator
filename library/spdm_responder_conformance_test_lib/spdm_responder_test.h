@@ -14,8 +14,29 @@
 #include "library/common_test_utility_lib.h"
 
 #ifndef LIBSPDM_MAX_SPDM_MSG_SIZE
-#define LIBSPDM_MAX_SPDM_MSG_SIZE 0x1200
+#define LIBSPDM_MAX_SPDM_MSG_SIZE 0x28000
 #endif
+
+static inline libspdm_return_t spdm_test_handle_large_response(
+    void *spdm_context, const uint32_t *session_id,
+    void *response, size_t *response_size, size_t response_capacity)
+{
+    spdm_error_response_t *error_response;
+
+    if (*response_size < sizeof(spdm_error_response_t)) {
+        return LIBSPDM_STATUS_SUCCESS;
+    }
+
+    error_response = response;
+    if ((error_response->header.request_response_code != SPDM_ERROR) ||
+        (error_response->header.param1 != SPDM_ERROR_CODE_LARGE_RESPONSE)) {
+        return LIBSPDM_STATUS_SUCCESS;
+    }
+
+    return libspdm_handle_error_large_response(
+        spdm_context, session_id, response_size, response,
+        response_capacity, false);
+}
 
 #ifndef LIBSPDM_MAX_CERT_CHAIN_BLOCK_LEN
 #define LIBSPDM_MAX_CERT_CHAIN_BLOCK_LEN 1024
