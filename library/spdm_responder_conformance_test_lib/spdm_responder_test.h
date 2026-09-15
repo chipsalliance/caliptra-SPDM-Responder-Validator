@@ -1,7 +1,8 @@
 /**
  *  Copyright Notice:
  *  Copyright 2021 DMTF. All rights reserved.
- *  License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/SPDM-Responder-Validator/blob/main/LICENSE.md
+ *  License: BSD 3-Clause License. For full text see link:
+ * https://github.com/DMTF/SPDM-Responder-Validator/blob/main/LICENSE.md
  **/
 
 #ifndef _SPDM_RESPONDER_TEST_H_
@@ -9,33 +10,31 @@
 
 #include "internal/libspdm_requester_lib.h"
 #include "internal/libspdm_secured_message_lib.h"
-
-#include "library/spdm_responder_conformance_test_lib.h"
 #include "library/common_test_utility_lib.h"
+#include "library/spdm_responder_conformance_test_lib.h"
 
 #ifndef LIBSPDM_MAX_SPDM_MSG_SIZE
 #define LIBSPDM_MAX_SPDM_MSG_SIZE 0x28000
 #endif
 
 static inline libspdm_return_t spdm_test_handle_large_response(
-    void *spdm_context, const uint32_t *session_id,
-    void *response, size_t *response_size, size_t response_capacity)
-{
-    spdm_error_response_t *error_response;
+    void* spdm_context, const uint32_t* session_id, void* response,
+    size_t* response_size, size_t response_capacity) {
+  spdm_error_response_t* error_response;
 
-    if (*response_size < sizeof(spdm_error_response_t)) {
-        return LIBSPDM_STATUS_SUCCESS;
-    }
+  if (*response_size < sizeof(spdm_error_response_t)) {
+    return LIBSPDM_STATUS_SUCCESS;
+  }
 
-    error_response = response;
-    if ((error_response->header.request_response_code != SPDM_ERROR) ||
-        (error_response->header.param1 != SPDM_ERROR_CODE_LARGE_RESPONSE)) {
-        return LIBSPDM_STATUS_SUCCESS;
-    }
+  error_response = response;
+  if ((error_response->header.request_response_code != SPDM_ERROR) ||
+      (error_response->header.param1 != SPDM_ERROR_CODE_LARGE_RESPONSE)) {
+    return LIBSPDM_STATUS_SUCCESS;
+  }
 
-    return libspdm_handle_error_large_response(
-        spdm_context, session_id, response_size, response,
-        response_capacity, false);
+  return libspdm_handle_error_large_response(spdm_context, session_id,
+                                             response_size, response,
+                                             response_capacity, false);
 }
 
 #ifndef LIBSPDM_MAX_CERT_CHAIN_BLOCK_LEN
@@ -48,22 +47,21 @@ static inline libspdm_return_t spdm_test_handle_large_response(
 
 #ifndef LIBSPDM_MAX_CERT_CHAIN_SIZE
 /* MLDSA - 0x8000, SLHDSA - 0x28000 */
-#if ((LIBSPDM_SLH_DSA_SHA2_128S_SUPPORT) || \
-    (LIBSPDM_SLH_DSA_SHAKE_128S_SUPPORT) || \
-    (LIBSPDM_SLH_DSA_SHA2_128F_SUPPORT) || \
-    (LIBSPDM_SLH_DSA_SHAKE_128F_SUPPORT) || \
-    (LIBSPDM_SLH_DSA_SHA2_192S_SUPPORT) || \
-    (LIBSPDM_SLH_DSA_SHAKE_192S_SUPPORT) || \
-    (LIBSPDM_SLH_DSA_SHA2_192F_SUPPORT) || \
-    (LIBSPDM_SLH_DSA_SHAKE_192F_SUPPORT) || \
-    (LIBSPDM_SLH_DSA_SHA2_256S_SUPPORT) || \
-    (LIBSPDM_SLH_DSA_SHAKE_256S_SUPPORT) || \
-    (LIBSPDM_SLH_DSA_SHA2_256F_SUPPORT) || \
-    (LIBSPDM_SLH_DSA_SHAKE_256F_SUPPORT))
+#if ((LIBSPDM_SLH_DSA_SHA2_128S_SUPPORT) ||  \
+     (LIBSPDM_SLH_DSA_SHAKE_128S_SUPPORT) || \
+     (LIBSPDM_SLH_DSA_SHA2_128F_SUPPORT) ||  \
+     (LIBSPDM_SLH_DSA_SHAKE_128F_SUPPORT) || \
+     (LIBSPDM_SLH_DSA_SHA2_192S_SUPPORT) ||  \
+     (LIBSPDM_SLH_DSA_SHAKE_192S_SUPPORT) || \
+     (LIBSPDM_SLH_DSA_SHA2_192F_SUPPORT) ||  \
+     (LIBSPDM_SLH_DSA_SHAKE_192F_SUPPORT) || \
+     (LIBSPDM_SLH_DSA_SHA2_256S_SUPPORT) ||  \
+     (LIBSPDM_SLH_DSA_SHAKE_256S_SUPPORT) || \
+     (LIBSPDM_SLH_DSA_SHA2_256F_SUPPORT) ||  \
+     (LIBSPDM_SLH_DSA_SHAKE_256F_SUPPORT))
 #define LIBSPDM_MAX_CERT_CHAIN_SIZE 0x28000
-#elif ((LIBSPDM_ML_DSA_44_SUPPORT) || \
-    (LIBSPDM_ML_DSA_65_SUPPORT) || \
-    (LIBSPDM_ML_DSA_87_SUPPORT))
+#elif ((LIBSPDM_ML_DSA_44_SUPPORT) || (LIBSPDM_ML_DSA_65_SUPPORT) || \
+       (LIBSPDM_ML_DSA_87_SUPPORT))
 #define LIBSPDM_MAX_CERT_CHAIN_SIZE 0x8000
 #else
 #define LIBSPDM_MAX_CERT_CHAIN_SIZE 0x1000
@@ -83,10 +81,11 @@ static inline libspdm_return_t spdm_test_handle_large_response(
 #define SPDM_TEST_SCRATCH_BUFFER_SIZE 0x1000
 
 typedef struct {
-    void *spdm_context;
-    /* test case specific scratch buffer between setup and case, avoid writable global variable */
-    uint8_t test_scratch_buffer[SPDM_TEST_SCRATCH_BUFFER_SIZE];
-    uint32_t test_scratch_buffer_size;
+  void* spdm_context;
+  /* test case specific scratch buffer between setup and case, avoid writable
+   * global variable */
+  uint8_t test_scratch_buffer[SPDM_TEST_SCRATCH_BUFFER_SIZE];
+  uint32_t test_scratch_buffer_size;
 } spdm_test_context_t;
 
 /**
@@ -96,9 +95,9 @@ typedef struct {
  * @retval 0xFFFFFFFF       if (data & mask) includes more than one bit.
  * @return (data & mask)    if (data & mask) includes one bit.
  **/
-uint32_t spdm_test_get_one_bit (uint32_t data, uint32_t mask);
+uint32_t spdm_test_get_one_bit(uint32_t data, uint32_t mask);
 
-void spdm_test_case_common_teardown (void *test_context);
+void spdm_test_case_common_teardown(void* test_context);
 
 extern common_test_case_t m_spdm_test_group_version[];
 extern common_test_case_t m_spdm_test_group_capabilities[];
